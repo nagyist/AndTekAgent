@@ -19,24 +19,24 @@
 - (void) awakeFromNib{
     //Create the NSStatusBar and set its length
     statusItem = [[[NSStatusBar systemStatusBar] statusItemWithLength:NSSquareStatusItemLength] retain];
-    
+
     //Allocates and loads the images into the application which will be used for our NSStatusItem
     statusOn = [NSImage imageNamed:@"iconon"];
     statusOff = [NSImage imageNamed:@"iconoff"];
-    
+
     [statusOn setTemplate:YES];
     [statusOff setTemplate:YES];
-    
+
     //Sets the images in our NSStatusItem
     [statusItem setImage:statusOff];
-    
+
     //Tells the NSStatusItem what menu to load
     [statusItem setMenu:statusMenu];
     //Sets the tooptip for our item
     [statusItem setToolTip:@"AndTekAgent"];
     //Enables highlighting
     [statusItem setHighlightMode:YES];
-    
+
     // Check if we need to create default NSUserDefaults (._.)
     BOOL isRunMoreThanOnce = [[NSUserDefaults standardUserDefaults] boolForKey:@"isRunMoreThanOnce"];
     if(!isRunMoreThanOnce){
@@ -57,21 +57,40 @@
     [serverAdresse setStringValue:[preferences stringForKey:@"server"]];
     [portAdresse setStringValue:[preferences stringForKey:@"port"]];
     [apiAdresse setStringValue:[preferences stringForKey:@"api"]];
-    
-    [self login: nil];
-    // TODO // [self checkCurrentState];
+
+
+    [self checkServerConnectivity];
+
+    // TODO
+    //[self login: nil];
+    //[self checkCurrentState];
+}
+
+- (BOOL) checkServerConnectivity{
+    NSInputStream *iStream;
+    NSOutputStream *oStream;
+    uint port = [[preferences stringForKey:@"port"] intValue];
+
+    NSURL *website = [NSURL URLWithString:[preferences stringForKey:@"server"]];
+    NSHost *host = [NSHost hostWithName:[website host]];
+    [NSStream getStreamsToHost:host
+                          port:port
+                   inputStream:&iStream
+                  outputStream:&oStream];
+
+    return true;
 }
 
 - (id) init
 {
-    
+
     self = [super init];
-    
+
     if (self)
     {
         [[[NSWorkspace sharedWorkspace] notificationCenter] addObserver: self selector: @selector(login:) name:  NSWorkspaceSessionDidBecomeActiveNotification object: nil];
         [[[NSWorkspace sharedWorkspace] notificationCenter] addObserver: self selector: @selector(logoff:) name: NSWorkspaceSessionDidResignActiveNotification object: nil];
-        
+
         // Add support for screensaver switch
         // [[NSDistributedNotificationCenter defaultCenter] addObserver:self selector:@selector(logoff:) name:@"com.apple.screensaver.didstart" object:nil];
         // [NSDistributedNotificationCenter defaultCenter] addObserver:self selector:@selector(logoff:) name:@"com.apple.screensaver.willstop" object:nil];
@@ -80,12 +99,12 @@
         // Add support for locked screens
         [[NSDistributedNotificationCenter defaultCenter] addObserver:self selector:@selector(logoff:) name:@"com.apple.screenIsLocked" object:nil];
         [[NSDistributedNotificationCenter defaultCenter] addObserver:self selector:@selector(login:) name:@"com.apple.screenIsUnlocked" object:nil];
-        
+
         // Add observer to logout before quit
         [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(applicationWillTerminate:) name:NSApplicationWillTerminateNotification object:nil];
 
     }
-        
+
     return self;
 }
 
@@ -98,21 +117,21 @@
 - (NSString *)checkCurrentState {
     NSURL *url = [NSURL URLWithString:[NSString stringWithFormat: @"http://%@:%@/%@", [serverAdresse stringValue], [portAdresse stringValue], [apiAdresse stringValue]]];
     NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:url];
-    
+
     NSString *requestFields = @"";
     requestFields = [requestFields stringByAppendingFormat:@"queue=all&"];
     requestFields = [requestFields stringByAppendingFormat:@"setsec=-1&"];
     requestFields = [requestFields stringByAppendingFormat:@"page=available&"];
     requestFields = [requestFields stringByAppendingFormat:@"dev=SEP%@", [macAdresse stringValue]];
-    
+
     requestFields = [requestFields stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding];
     NSData *requestData = [requestFields dataUsingEncoding:NSUTF8StringEncoding];
     request.HTTPBody = requestData;
     request.HTTPMethod = @"POST";
-    
+
     NSHTTPURLResponse *response = nil;
     NSError *error = nil;
-    
+
     NSData *responseData = [NSURLConnection sendSynchronousRequest:request returningResponse:&response error:&error];
     NSString *responseString = [[NSString alloc]initWithData:responseData encoding:NSASCIIStringEncoding];
 
@@ -127,19 +146,19 @@
 - (NSData *)sendRequestWithState: (NSString *) state {
     NSURL *url = [NSURL URLWithString:[NSString stringWithFormat: @"http://%@:%@/%@", [serverAdresse stringValue], [portAdresse stringValue], [apiAdresse stringValue]]];
     NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:url];
-    
+
     NSString *requestFields = @"";
     requestFields = [requestFields stringByAppendingFormat:@"queue=all&"];
     requestFields = [requestFields stringByAppendingFormat:@"setsec=-1&"];
     requestFields = [requestFields stringByAppendingFormat:@"page=available&"];
     requestFields = [requestFields stringByAppendingFormat:@"state=%@&", state];
     requestFields = [requestFields stringByAppendingFormat:@"dev=SEP%@", [macAdresse stringValue]];
-    
+
     requestFields = [requestFields stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding];
     NSData *requestData = [requestFields dataUsingEncoding:NSUTF8StringEncoding];
     request.HTTPBody = requestData;
     request.HTTPMethod = @"POST";
-    
+
     NSHTTPURLResponse *response = nil;
     NSError *error = nil;
     NSData *responseData = [NSURLConnection sendSynchronousRequest:request returningResponse:&response error:&error];
@@ -148,7 +167,7 @@
     } else {
         //Error handling
     }
-    
+
     return responseData;
 }
 
@@ -160,7 +179,7 @@
 
 - (void) logoff: (NSNotification *) notification
 {
-	[self sendRequestWithState: @"1"];
+    [self sendRequestWithState: @"1"];
     [statusItem setImage:statusOff];
 }
 
